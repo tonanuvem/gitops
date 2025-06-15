@@ -45,13 +45,11 @@ metadata:
   namespace: argocd
 spec:
   hosts:
-  - "*"
+  - "argocd.${INGRESS_DOMAIN}"
   gateways:
   - argocd-gateway
   http:
   - match:
-    - uri:
-        prefix: /argocd
     route:
     - destination:
         host: argocd-server
