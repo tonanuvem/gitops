@@ -23,6 +23,29 @@ kubectl label namespace argocd istio-injection=enabled
 
 kubectl apply -k ./ -n argocd --wait=true
 
+# Garanta que o VirtualService está roteando a raiz /
+kubectl patch deployment argocd-server -n argocd \
+  --type=json \
+  -p='[
+    {"op": "remove", "path": "/spec/template/spec/containers/0/args/6"},
+    {"op": "remove", "path": "/spec/template/spec/containers/0/args/5"},
+    {"op": "remove", "path": "/spec/template/spec/containers/0/args/4"},
+    {"op": "remove", "path": "/spec/template/spec/containers/0/args/3"}
+  ]'
+
+# Remover server.basehref e server.rootpath do ConfigMap:
+# Reiniciar o argocd-server para garantir que ConfigMap atualizado seja carregado
+kubectl patch configmap argocd-cmd-params-cm -n argocd \
+  --type=json \
+  -p='[
+    {"op": "remove", "path": "/data/server.basehref"},
+    {"op": "remove", "path": "/data/server.rootpath"}
+  ]'
+
+kubectl rollout restart deployment argocd-server -n argocd
+
+kubectl rollout status deployment argocd-server -n argocd
+
 openssl req -x509 -nodes -newkey rsa:2048 \
   -keyout private.key \
   -out certificate.crt \
