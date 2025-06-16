@@ -17,7 +17,6 @@ spec:
     spec:
       containers:
       - name: python-app
-        # Use a imagem que você enviou
         image: tonanuvem/python-app-gitops:v1.0
         ports:
         - containerPort: 5000
