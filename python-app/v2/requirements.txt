@@ -1,0 +1,9 @@
+blinker==1.9.0
+click==8.2.1
+Flask==3.1.1
+itsdangerous==2.2.0
+Jinja2==3.1.6
+MarkupSafe==3.0.2
+prometheus_client==0.22.1
+prometheus_flask_exporter==0.23.2
+Werkzeug==3.1.3
