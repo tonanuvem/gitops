@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: python-app-monitor
+  namespace: default
+  labels:
+    release: prometheus  # deve coincidir com o `release` definido no Prometheus
+spec:
+  selector:
+    matchLabels:
+      app: python-app
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scheme: http
