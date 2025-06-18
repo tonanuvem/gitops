@@ -1,28 +1,31 @@
----
+# ===============================
+# AnalysisTemplate - Prometheus
+# ===============================
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
-  name: latency-analysis
-  namespace: default
+  name: analisar-latencia
+  namespace: default  # Pode estar no mesmo namespace do rollout
 spec:
   args:
-    - name: service-name
-      value: python-app-service
+    - name: rollout-name  # Argumento que receberá o nome do rollout
   metrics:
     - name: avg-processing-time
-      interval: 30s
-      count: 3
-      failureLimit: 1
-      successCondition: result < 1.5
+      interval: 20s                 # Roda a cada 20 segundos
+      failureLimit: 1               # Falha o rollout se a condição for violada 1 vez
+      successLimit: 2               # Precisa passar 2 vezes consecutivas
+      consecutiveErrorLimit: 4      # Evita abortar por erros de comunicação
       provider:
         prometheus:
           address: http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090
           query: |
-            avg(rate(app_processing_seconds_sum{endpoint="/"}[2m])) 
-            / 
-            avg(rate(app_processing_seconds_count{endpoint="/"}[2m]))
-
+            # Verifica se a média do tempo de processamento está abaixo de 1.5s
+            # A label "pod" filtra os pods atuais do rollout
+            avg_over_time(app_processing_seconds{pod=~"{{args.rollout-name}}-.*"}[2m]) < 1.5
 ---
+# ===============================
+# Rollout - Estratégia Canary
+# ===============================
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
@@ -30,7 +33,6 @@ metadata:
   namespace: default
 spec:
   replicas: 2
-  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: python-app
@@ -39,25 +41,29 @@ spec:
       labels:
         app: python-app
       annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "5000"
+        prometheus.io/scrape: 'true'   # Permite Prometheus coletar métricas
+        prometheus.io/port: '5000'
     spec:
       containers:
         - name: python-app
-          image: tonanuvem/python-app-gitops:v1
+          image: tonanuvem/python-app-gitops:v-1  # Substitua a versão conforme necessário
           ports:
             - containerPort: 5000
   strategy:
     canary:
       steps:
-        - setWeight: 20
-        - pause: { duration: 30s }
+        # Início do Canary rollout
+        - setWeight: 20               # Envia 20% do tráfego para nova versão
+        - pause: { duration: 30s }    # Pausa para observação
+
         - analysis:
             templates:
-              - templateName: latency-analysis
+              - templateName: analisar-latencia
             args:
-              - name: service-name
-                value: python-app-service
-        - setWeight: 50
-        - pause: { duration: 30s }
-        - setWeight: 100
+              - name: rollout-name
+                value: python-app     # Nome do rollout (usado no PromQL)
+
+        - setWeight: 50               # Se tudo estiver OK, aumenta para 50%
+        - pause: { duration: 30s }    # Pausa antes de promover completamente
+
+        # Argo automaticamente promoverá a versão se todas etapas forem bem-sucedidas
