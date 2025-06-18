@@ -2,6 +2,7 @@ apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
 metadata:
   name: python-app-monitor
+  namespace: monitoring
   labels:
     release: prometheus  # deve coincidir com o release do Helm
 spec:
