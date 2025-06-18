@@ -1,27 +1,28 @@
+---
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
   name: latency-analysis
-  namespace: default       # Seu namespace do app
+  namespace: default
 spec:
   args:
-    - name: service-name    # Nome do argumento que vamos usar na consulta
+    - name: service-name
+      value: python-app-service
   metrics:
     - name: avg-processing-time
-      interval: 20s
+      interval: 30s
       count: 3
       failureLimit: 1
-      successLimit: 2
+      successCondition: result < 1.5
       provider:
         prometheus:
-          address: http://prometheus-kube-prometheus-prometheus.default.svc:9090  # Ajuste para seu endereço Prometheus
+          address: http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090
           query: |
-            avg_over_time(
-              app_processing_seconds{service="{{args.service-name}}", namespace="default"}[2m]
-            ) > 1.5
+            avg(rate(app_processing_seconds_sum{endpoint="/"}[2m])) 
+            / 
+            avg(rate(app_processing_seconds_count{endpoint="/"}[2m]))
 
 ---
-
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
@@ -29,6 +30,7 @@ metadata:
   namespace: default
 spec:
   replicas: 2
+  revisionHistoryLimit: 2
   selector:
     matchLabels:
       app: python-app
@@ -42,8 +44,7 @@ spec:
     spec:
       containers:
         - name: python-app
-          image: tonanuvem/python-app-gitops:v2
-          imagePullPolicy: Always          # Força a baixar sempre a última imagem
+          image: tonanuvem/python-app-gitops:v1
           ports:
             - containerPort: 5000
   strategy:
@@ -56,7 +57,7 @@ spec:
               - templateName: latency-analysis
             args:
               - name: service-name
-                value: python-app-service   # Nome do serviço que aparece na métrica prometheus
+                value: python-app-service
         - setWeight: 50
         - pause: { duration: 30s }
         - setWeight: 100
