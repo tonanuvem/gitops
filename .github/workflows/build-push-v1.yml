@@ -1,4 +1,4 @@
-name: Build and Push Linux Docker Image to Docker Hub
+name: V1 Build and Push Image to Docker Hub
 
 on:
   workflow_dispatch:
