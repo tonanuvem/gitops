@@ -17,6 +17,7 @@ spec:
     spec:
       containers:
       - name: python-app
-        image: tonanuvem/python-app-gitops:v1
+        image: tonanuvem/python-app-gitops:v2
+        imagePullPolicy: Always
         ports:
         - containerPort: 5000
