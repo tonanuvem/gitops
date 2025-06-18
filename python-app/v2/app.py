@@ -1,3 +1,10 @@
+from flask import Flask, render_template_string
+from prometheus_flask_exporter import PrometheusMetrics
+
+app = Flask(__name__)
+metrics = PrometheusMetrics(app)
+
+HTML_PAGE = """
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -25,3 +32,11 @@
     <h1>Olá! Esta é a v2 da minha aplicação.</h1>
 </body>
 </html>
+"""
+
+@app.route('/')
+def hello():
+    return render_template_string(HTML_PAGE)
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
