@@ -1,31 +1,32 @@
-# ===============================
-# AnalysisTemplate - Prometheus
-# ===============================
+# ==========================
+# AnalysisTemplate
+# ==========================
 apiVersion: argoproj.io/v1alpha1
 kind: AnalysisTemplate
 metadata:
   name: analisar-latencia
-  namespace: default  # Pode estar no mesmo namespace do rollout
+  namespace: default  # Mantido no mesmo namespace do Rollout para facilitar
 spec:
   args:
-    - name: rollout-name  # Argumento que receberá o nome do rollout
+    - name: rollout-name  # Argumento que será usado na query para filtrar os pods
   metrics:
-    - name: avg-processing-time
-      interval: 20s                 # Roda a cada 20 segundos
-      failureLimit: 1               # Falha o rollout se a condição for violada 1 vez
-      successLimit: 2               # Precisa passar 2 vezes consecutivas
-      consecutiveErrorLimit: 4      # Evita abortar por erros de comunicação
+    - name: avg-processing-time  # Nome da métrica da análise
+      interval: 20s              # Intervalo entre execuções da métrica
+      count: 3                   # Executa a query 3 vezes (resolve o erro de count)
+      successLimit: 2           # Precisa de 2 execuções bem-sucedidas
+      failureLimit: 1           # Fails rollout se a condição falhar 1 vez
+      consecutiveErrorLimit: 4  # Tolerância para erros na query Prometheus
       provider:
         prometheus:
           address: http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090
           query: |
-            # Verifica se a média do tempo de processamento está abaixo de 1.5s
-            # A label "pod" filtra os pods atuais do rollout
             avg_over_time(app_processing_seconds{pod=~"{{args.rollout-name}}-.*"}[2m]) < 1.5
+            # Considera saudável se o tempo médio de resposta dos pods for < 1.5s nos últimos 2 minutos
+
 ---
-# ===============================
-# Rollout - Estratégia Canary
-# ===============================
+# ==========================
+# Rollout
+# ==========================
 apiVersion: argoproj.io/v1alpha1
 kind: Rollout
 metadata:
@@ -41,29 +42,30 @@ spec:
       labels:
         app: python-app
       annotations:
-        prometheus.io/scrape: 'true'   # Permite Prometheus coletar métricas
+        prometheus.io/scrape: 'true'
         prometheus.io/port: '5000'
     spec:
       containers:
         - name: python-app
-          image: tonanuvem/python-app-gitops:v-1  # Substitua a versão conforme necessário
+          image: tonanuvem/python-app-gitops:v2  # Substitua pela imagem correta
+          imagePullPolicy: Always  # Garante que o cluster sempre puxe a última versão
           ports:
             - containerPort: 5000
+
   strategy:
     canary:
       steps:
-        # Início do Canary rollout
-        - setWeight: 20               # Envia 20% do tráfego para nova versão
-        - pause: { duration: 30s }    # Pausa para observação
+        - setWeight: 20  # Envia 20% do tráfego para a nova versão
+        - pause: { duration: 30s }  # Espera 30s para estabilização
 
         - analysis:
             templates:
               - templateName: analisar-latencia
             args:
               - name: rollout-name
-                value: python-app     # Nome do rollout (usado no PromQL)
+                value: python-app  # Usa o nome do rollout no filtro da métrica
 
-        - setWeight: 50               # Se tudo estiver OK, aumenta para 50%
-        - pause: { duration: 30s }    # Pausa antes de promover completamente
+        - setWeight: 50  # Aumenta para 50% se a análise for bem-sucedida
+        - pause: { duration: 30s }
 
-        # Argo automaticamente promoverá a versão se todas etapas forem bem-sucedidas
+        - setWeight: 100  # Finaliza com 100% do tráfego
