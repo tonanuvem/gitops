@@ -1,0 +1,60 @@
+# AnalysisTemplate - análise de latência
+apiVersion: argoproj.io/v1alpha1
+kind: AnalysisTemplate
+metadata:
+  name: latency-analysis
+  namespace: default
+spec:
+  args:
+    - name: service-name
+  metrics:
+    - name: avg-processing-time
+      interval: 20s
+      failureLimit: 1
+      successLimit: 2
+      provider:
+        prometheus:
+          address: http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090
+          query: |
+            avg_over_time(app_processing_seconds{service="{{args.service-name}}", namespace="default"}[2m]) > 1.5
+
+---
+
+# Rollout com análise canário
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: python-app
+  namespace: default
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+    spec:
+      containers:
+        - name: python-app
+          image: tonanuvem/python-app-gitops:v2  # ou v1.0, se estiver testando
+          ports:
+            - containerPort: 5000
+  strategy:
+    canary:
+      steps:
+        - setWeight: 20
+        - pause: { duration: 30s }
+        - analysis:
+            templates:
+              - templateName: latency-analysis
+            args:
+              - name: service-name
+                value: python-app-service
+        - setWeight: 50
+        - pause: { duration: 30s }
+        - setWeight: 100
