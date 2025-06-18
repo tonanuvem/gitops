@@ -41,7 +41,7 @@ spec:
     spec:
       containers:
         - name: python-app
-          image: tonanuvem/python-app-gitops:v2  # ou v1.0, se estiver testando
+          image: tonanuvem/python-app-gitops:v1  # ou v2 ou v-quebrada (a que se estiver testando)
           ports:
             - containerPort: 5000
   strategy:
