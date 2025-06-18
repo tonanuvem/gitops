@@ -3,16 +3,16 @@ kind: ServiceMonitor
 metadata:
   name: python-app-monitor
   labels:
-    release: prometheus  # Muito importante: deve corresponder ao release do Helm
+    release: prometheus  # deve coincidir com o release do Helm
 spec:
   selector:
     matchLabels:
       app: python-app
   namespaceSelector:
     matchNames:
-      - default  # Ou onde estiver o Service
+      - default  # namespace onde está o Service
   endpoints:
-    - port: 5000
+    - port: http  # <-- usar o NOME da porta, como string
       path: /metrics
       interval: 15s
       scheme: http
