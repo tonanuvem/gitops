@@ -1,0 +1,23 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: python-app
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: python-app
+  template:
+    metadata:
+      labels:
+        app: python-app
+      annotations:
+        prometheus.io/scrape: 'true' # Para o Prometheus descobrir este pod
+        prometheus.io/port: '5000'   # Porta onde as métricas são expostas
+    spec:
+      containers:
+      - name: python-app
+        image: tonanuvem/python-app-gitops:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
