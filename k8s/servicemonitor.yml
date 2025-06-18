@@ -8,7 +8,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: python-app-service
+      app: python-app
   namespaceSelector:
     matchNames:
       - default  # namespace onde está o Service
