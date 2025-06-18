@@ -1,37 +1,7 @@
-# ==========================
-# AnalysisTemplate
-# ==========================
-apiVersion: argoproj.io/v1alpha1
-kind: AnalysisTemplate
-metadata:
-  name: analisar-latencia
-  namespace: default  # Mantido no mesmo namespace do Rollout para facilitar
-spec:
-  args:
-    - name: rollout-name  # Argumento que será usado na query para filtrar os pods
-  metrics:
-    - name: avg-processing-time  # Nome da métrica da análise
-      interval: 20s              # Intervalo entre execuções da métrica
-      count: 3                   # Executa a query 3 vezes (resolve o erro de count)
-      successLimit: 2           # Precisa de 2 execuções bem-sucedidas
-      failureLimit: 1           # Fails rollout se a condição falhar 1 vez
-      consecutiveErrorLimit: 4  # Tolerância para erros na query Prometheus
-      provider:
-        prometheus:
-          address: http://prometheus-kube-prometheus-prometheus.monitoring.svc:9090
-          query: |
-            avg_over_time(app_processing_seconds{pod=~"{{args.rollout-name}}-.*"}[2m]) < 1.5
-            # Considera saudável se o tempo médio de resposta dos pods for < 1.5s nos últimos 2 minutos
-
----
-# ==========================
-# Rollout
-# ==========================
-apiVersion: argoproj.io/v1alpha1
-kind: Rollout
+apiVersion: apps/v1
+kind: Deployment
 metadata:
   name: python-app
-  namespace: default
 spec:
   replicas: 2
   selector:
@@ -42,30 +12,12 @@ spec:
       labels:
         app: python-app
       annotations:
-        prometheus.io/scrape: 'true'
-        prometheus.io/port: '5000'
+        prometheus.io/scrape: 'true' # Para o Prometheus descobrir este pod
+        prometheus.io/port: '5000'   # Porta onde as métricas são expostas
     spec:
       containers:
-        - name: python-app
-          image: tonanuvem/python-app-gitops:v2  # Substitua pela imagem correta
-          imagePullPolicy: Always  # Garante que o cluster sempre puxe a última versão
-          ports:
-            - containerPort: 5000
-
-  strategy:
-    canary:
-      steps:
-        - setWeight: 20  # Envia 20% do tráfego para a nova versão
-        - pause: { duration: 30s }  # Espera 30s para estabilização
-
-        - analysis:
-            templates:
-              - templateName: analisar-latencia
-            args:
-              - name: rollout-name
-                value: python-app  # Usa o nome do rollout no filtro da métrica
-
-        - setWeight: 50  # Aumenta para 50% se a análise for bem-sucedida
-        - pause: { duration: 30s }
-
-        - setWeight: 100  # Finaliza com 100% do tráfego
+      - name: python-app
+        image: tonanuvem/python-app-gitops:v1
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5000
